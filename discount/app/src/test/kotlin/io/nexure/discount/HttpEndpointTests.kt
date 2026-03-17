@@ -14,7 +14,6 @@ import io.ktor.server.testing.testApplication
 import io.nexure.discount.model.ApplyDiscountRequest
 import io.nexure.discount.model.ProductResponse
 import org.testcontainers.containers.MongoDBContainer
-import org.testcontainers.utility.DockerImageName
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -26,12 +25,11 @@ import kotlin.test.assertNotNull
  * If you see serialization errors, check the Application configuration!
  */
 class HttpEndpointTests {
-    
+
     companion object {
-        private val mongoContainer = MongoDBContainer(DockerImageName.parse("mongo:7.0"))
-        
-        init {
-            mongoContainer.start()
+        @JvmStatic
+        val mongoContainer = MongoDBContainer("mongo:7.0").apply {
+            start()
         }
     }
     

@@ -2,3 +2,6 @@
 .kotlin
 .gradle
 build
+*.log
+out
+.DS_Store

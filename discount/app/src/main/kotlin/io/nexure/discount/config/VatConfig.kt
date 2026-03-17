@@ -12,6 +12,8 @@ object VatConfig {
     )
     
     fun getVatRate(country: String): Double {
+        // Unknown countries default to 0% VAT as per requirement to handle unknown countries
+        // and existing test expectations.
         return vatRates[country] ?: 0.0
     }
 }

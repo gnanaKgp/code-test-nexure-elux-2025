@@ -1,8 +1,11 @@
 package io.nexure.discount.repository
 
 import com.mongodb.client.model.Filters
+import com.mongodb.client.model.FindOneAndUpdateOptions
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Indexes
+import com.mongodb.client.model.ReturnDocument
+import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import io.nexure.discount.model.Discount
@@ -23,16 +26,7 @@ class ProductRepository(mongoClient: MongoClient, databaseName: String = "produc
     
     suspend fun save(product: Product): Product {
         val filter = Filters.eq("id", product.id)
-        val existing = collection.find(filter).firstOrNull()
-        
-        if (existing != null) {
-            // Update existing product
-            collection.replaceOne(filter, product)
-        } else {
-            // Insert new product
-            collection.insertOne(product)
-        }
-        
+        collection.replaceOne(filter, product, com.mongodb.client.model.ReplaceOptions().upsert(true))
         return product
     }
     
@@ -45,23 +39,26 @@ class ProductRepository(mongoClient: MongoClient, databaseName: String = "produc
     }
     
     suspend fun applyDiscount(productId: String, discount: Discount): Product? {
-        val product = findById(productId) ?: return null
-        
-        val hasDiscount = product.discounts.any { it.discountId == discount.discountId }
-        if (hasDiscount) {
-            return product
-        }
-        
-        // Throttle to prevent MongoDB write overload
-        kotlinx.coroutines.delay(5)
-        
-        val updatedDiscounts = product.discounts + discount
-        val updatedProduct = product.copy(discounts = updatedDiscounts)
-        
-        return save(updatedProduct)
+        // Ensure the product exists
+        val exists = findById(productId) ?: return null
+
+        // Atomically push the discount only if no element with the same discountId exists.
+        // This single round-trip to MongoDB prevents race conditions entirely.
+        val filter = Filters.and(
+            Filters.eq("id", productId),
+            Filters.not(Filters.elemMatch("discounts", Filters.eq("discountId", discount.discountId)))
+        )
+        val update = Updates.push("discounts", discount)
+        val options = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+
+        val updated = collection.findOneAndUpdate(filter, update, options)
+
+        // If the filter didn't match (discount already existed) return the current product state
+        return updated ?: exists
     }
     
     suspend fun deleteAll() {
         collection.drop()
     }
 }
+

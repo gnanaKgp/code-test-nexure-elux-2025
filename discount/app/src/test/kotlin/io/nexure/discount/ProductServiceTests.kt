@@ -26,24 +26,29 @@ import kotlin.test.assertTrue
  * If you identify tests with incorrect expectations, you may modify them (document why!).
  */
 class ProductServiceTests {
-    
+
     companion object {
         private val mongoContainer = MongoDBContainer(DockerImageName.parse("mongo:7.0"))
-        private lateinit var mongoClient: MongoClient
-        
-        init {
-            mongoContainer.start()
-            mongoClient = MongoClient.create(mongoContainer.connectionString)
-        }
     }
     
     private lateinit var repository: ProductRepository
     private lateinit var service: ProductService
-    
+
     @BeforeTest
     fun setup() = runBlocking {
-        repository = ProductRepository(mongoClient, "testdb_${System.currentTimeMillis()}")
+        if (!mongoContainer.isRunning) {
+            mongoContainer.start()
+        }
+
+        val mongoClient = MongoClient.create(mongoContainer.connectionString)
+
+        repository = ProductRepository(
+            mongoClient,
+            "testdb_${System.currentTimeMillis()}"
+        )
+
         service = ProductService(repository)
+
         repository.init()
     }
     
